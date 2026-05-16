@@ -26,4 +26,4 @@ RUN mkdir -p /tmp/uploads
 EXPOSE 8080
 
 # تشغيل التطبيق
-CMD ["python", "app.py"]
+CMD ["gunicorn", "-k", "eventlet", "-w", "1", "app:app"]
