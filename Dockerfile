@@ -3,26 +3,27 @@ FROM python:3.11-slim
 # تثبيت hashcat والأدوات المطلوبة
 RUN apt-get update && apt-get install -y \
     hashcat \
-    nvidia-smi \
+    wget \
+    curl \
+    git \
+    nano \
     pciutils \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# نسخ ملف المتطلبات وتثبيتها
+# نسخ requirements وتثبيت dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# نسخ التطبيق
-COPY app.py .
-COPY templates/ templates/
-COPY static/ static/
+# نسخ باقي الملفات
+COPY . .
 
-# إنشاء مجلد للرفع
-RUN mkdir -p /app/uploads
+# إنشاء مجلد مؤقت للملفات المرفوعة
+RUN mkdir -p /tmp/uploads
 
-# فتح المنفذ
-EXPOSE 5000
+# استخدام port 8080 كما هو محدد في Railway
+EXPOSE 8080
 
 # تشغيل التطبيق
 CMD ["python", "app.py"]
