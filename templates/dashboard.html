@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة التحكم - System Metrics</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            background: #1a1a2e;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .navbar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .metric-card {
+            background: #16213e;
+            border-radius: 15px;
+            padding: 20px;
+            color: white;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+        }
+        .gpu-card {
+            background: #0f3460;
+            border-radius: 15px;
+            padding: 15px;
+            margin: 10px;
+            color: white;
+        }
+        .chart-container {
+            background: #16213e;
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="bi bi-wifi"></i> WiFi Password Recovery
+            </a>
+            <div>
+                <a href="/" class="btn btn-outline-light me-2">
+                    <i class="bi bi-house"></i> الرئيسية
+                </a>
+                <a href="/logs" class="btn btn-outline-light">
+                    <i class="bi bi-file-text"></i> السجلات
+                </a>
+            </div>
+        </div>
+    </nav>
+    
+    <div class="container mt-4">
+        <h2 class="text-white mb-4"><i class="bi bi-speedometer2"></i> لوحة التحكم - مراقبة النظام</h2>
+        
+        <div class="row">
+            <div class="col-md-3">
+                <div class="metric-card text-center">
+                    <i class="bi bi-cpu" style="font-size: 2rem;"></i>
+                    <h5>CPU Usage</h5>
+                    <div class="metric-value" id="cpuUsage">0%</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="metric-card text-center">
+                    <i class="bi bi-memory" style="font-size: 2rem;"></i>
+                    <h5>RAM Usage</h5>
+                    <div class="metric-value" id="ramUsage">0%</div>
+                    <small id="ramDetails">0 / 0 MB</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="metric-card text-center">
+                    <i class="bi bi-hdd-stack" style="font-size: 2rem;"></i>
+                    <h5>Disk Usage</h5>
+                    <div class="metric-value" id="diskUsage">0%</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="metric-card text-center">
+                    <i class="bi bi-activity" style="font-size: 2rem;"></i>
+                    <h5>System Load</h5>
+                    <div class="metric-value" id="systemLoad">0</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-6">
+                <div class="chart-container">
+                    <h5 class="text-white"><i class="bi bi-graph-up"></i> استخدام الموارد</h5>
+                    <canvas id="resourceChart"></canvas>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="chart-container">
+                    <h5 class="text-white"><i class="bi bi-display"></i> GPU Monitoring</h5>
+                    <div id="gpuInfo"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let resourceChart;
+        
+        function initChart() {
+            const ctx = document.getElementById('resourceChart').getContext('2d');
+            resourceChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        { label: 'CPU %', borderColor: 'rgb(255, 99, 132)', data: [], tension: 0.4 },
+                        { label: 'RAM %', borderColor: 'rgb(54, 162, 235)', data: [], tension: 0.4 },
+                        { label: 'GPU %', borderColor: 'rgb(75, 192, 192)', data: [], tension: 0.4 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    scales: { y: { min: 0, max: 100 } }
+                }
+            });
+        }
+        
+        function updateMetrics() {
+            fetch('/api/stats')
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('cpuUsage').innerText = data.cpu_percent + '%';
+                    document.getElementById('ramUsage').innerText = data.memory_percent + '%';
+                    document.getElementById('diskUsage').innerText = data.disk_percent + '%';
+                    document.getElementById('ramDetails').innerText = `${data.memory_used} / ${data.memory_total} MB`;
+                    
+                    if (data.gpus && data.gpus.length > 0) {
+                        let gpuHtml = '';
+                        data.gpus.forEach(gpu => {
+                            gpuHtml += `
+                                <div class="gpu-card">
+                                    <h6><i class="bi bi-gpu-card"></i> ${gpu.name}</h6>
+                                    <div class="row">
+                                        <div class="col-6">GPU Util: ${gpu.gpu_util}%</div>
+                                        <div class="col-6">Temp: ${gpu.temperature}°C</div>
+                                        <div class="col-12 mt-2">VRAM: ${gpu.memory_used}/${gpu.memory_total} MB</div>
+                                    </div>
+                                    <div class="progress mt-2">
+                                        <div class="progress-bar" style="width: ${gpu.gpu_util}%"></div>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        document.getElementById('gpuInfo').innerHTML = gpuHtml;
+                        
+                        // تحديث الرسم البياني
+                        const now = new Date().toLocaleTimeString();
+                        resourceChart.data.labels.push(now);
+                        resourceChart.data.datasets[0].data.push(data.cpu_percent);
+                        resourceChart.data.datasets[1].data.push(data.memory_percent);
+                        resourceChart.data.datasets[2].data.push(data.gpus[0]?.gpu_util || 0);
+                        
+                        if (resourceChart.data.labels.length > 20) {
+                            resourceChart.data.labels.shift();
+                            resourceChart.data.datasets.forEach(ds => ds.data.shift());
+                        }
+                        resourceChart.update();
+                    }
+                });
+        }
+        
+        initChart();
+        setInterval(updateMetrics, 2000);
+        updateMetrics();
+    </script>
+</body>
+</html>
